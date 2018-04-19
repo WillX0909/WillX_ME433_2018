@@ -16,6 +16,7 @@ void setVoltage(char channel, char voltage)
 void initSPI1()
 {
     RPA1Rbits.RPA1R = 0b0011;       // SET A1 as SDO1
+    RPA0Rbits.RPA0R = 0b0011;       // SET A0 as SS1
     CS = 1;
     SPI1CON = 0;                    // Turn off SPI and reset
     SPI1BUF;                        // Clear buffer
