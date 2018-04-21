@@ -41,8 +41,7 @@
 #define SLAVE_ADDR 0b0100111
 
 void initExpander(void){
-    ANSELBbits.ANSB2 = 0; 
-    ANSELBbits.ANSB3 = 0;
+
     i2c_master_setup();
     i2c_master_start();
     i2c_master_send(SLAVE_ADDR<<1|0);
@@ -97,7 +96,8 @@ int main(void) {
     TRISBbits.TRISB4 = 1; //sets RB4 (pin 11, Push Button) as input
     TRISAbits.TRISA4 = 0; //sets RA4 (pin 12, Green LED) as output
     LATAbits.LATA4 = 1; //sets Green LED to be high output 
-    
+    ANSELBbits.ANSB2 = 0; 
+    ANSELBbits.ANSB3 = 0;
      //turns on I2C peripheral
     initExpander();
     
