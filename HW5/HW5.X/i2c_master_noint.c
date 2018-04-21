@@ -1,15 +1,15 @@
-#include<xc.h>
+#include<xc.h>           // processor SFR definitions
+#include<sys/attribs.h>  // __ISR macro
 #include "i2c_master_noint.h"
-
 // I2C Master utilities, 100 kHz, using polling rather than interrupts
 // The functions must be callled in the correct order as per the I2C protocol
-// Change I2C1 to the I2C channel you are using
+// Using IC2C to talk to I/O expander
 // I2C pins need pull-up resistors, 2k-10k
 
 void i2c_master_setup(void) {
-  I2C2BRG = 233;            // I2CBRG = [1/(2*Fsck) - PGD]*Pblck - 2
-                                    // look up PGD for your PIC32
-  I2C2CONbits.ON = 1;               // turn on the I2C1 module
+  I2C2BRG = 233;            // I2CBRG = [1/(2*Fsck) - PGD]*Pblck - 2 
+                            // PGD is 104ns for PIC32, Fsck = 100kHz, Pbclk = 48Mhz
+  I2C2CONbits.ON = 1;       // turn on the I2C2 module
 }
 
 // Start a transmission on the I2C bus
@@ -18,8 +18,8 @@ void i2c_master_start(void) {
     while(I2C2CONbits.SEN) { ; }    // wait for the start bit to be sent
 }
 
-void i2c_master_restart(void) {
-    I2C2CONbits.RSEN = 1;           // send a restart
+void i2c_master_restart(void) {     
+    I2C2CONbits.RSEN = 1;           // send a restart 
     while(I2C2CONbits.RSEN) { ; }   // wait for the restart to clear
 }
 
