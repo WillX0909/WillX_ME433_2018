@@ -1,8 +1,7 @@
 #include<xc.h>           // processor SFR definitions
 #include<sys/attribs.h>  // __ISR macro
 #include "i2c_master_noint.h"
-
-#define SLAVE_ADDR 0b0100111 // 4 bits of manufacture-set (0100), 3 bits of A2/A1/A0
+ 
 
 // DEVCFG0
 #pragma config DEBUG = OFF // no debugging
@@ -39,6 +38,8 @@
 #pragma config FUSBIDIO = ON // USB pins controlled by USB module
 #pragma config FVBUSONIO = ON // USB BUSON controlled by USB module
 
+#define SLAVE_ADDR 0b0100111
+
 void initExpander(void){
     ANSELBbits.ANSB2 = 0; 
     ANSELBbits.ANSB3 = 0;
@@ -48,13 +49,19 @@ void initExpander(void){
     i2c_master_send(0x00);
     i2c_master_send(0xF0);
     i2c_master_stop();
+    
+    i2c_master_start(); // make the start bit
+    i2c_master_send(SLAVE_ADDR<<1|0); // device opcode, left shift by 1, set last bit as '0' for writing
+    i2c_master_send(0x06); // GPPU register 
+    i2c_master_send(0b11110000); // set input pins to be default high
+    i2c_master_stop(); //make the stop bit
 }
 
 void setExpander(char pin, char level) { // write to expander
     i2c_master_start();
     i2c_master_send(SLAVE_ADDR << 1|0); // hardware address and write bit
     i2c_master_send(0x09); // LAT register = 0x0A
-    i2c_master_send(level << pin); // write "level" (hi/lo) to "pin"
+    i2c_master_send((0x01 & level) << pin); // write "level" (hi/lo) to "pin"
     i2c_master_stop();
 }
 
