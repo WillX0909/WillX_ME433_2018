@@ -43,7 +43,7 @@
 #pragma config FUSBIDIO = ON // USB pins controlled by USB module
 #pragma config FVBUSONIO = ON // USB BUSON controlled by USB module
 
-void displayChar(char x, char y, int color, char ch){
+void displayChar(short x, short y, short color, char ch){
     int i, j;
     
     for(i = 0; i < 5; i++){
@@ -64,18 +64,19 @@ void displayStr(char* msg, char x, char y){
     int i = 0;
     while(msg[i] != 0){
         displayChar(x+(i*6), y, TEXTCOLOR, msg[i]);
+        // 6 or 5?
         i++;
     }
 }
 
-void drawBar(char x, char y, char z, char ch, char len, int colora, int colorb){
+void drawBar(short x, short y, short z, char ch, char len, short colora, short colorb){
     int i, j;
     for(i = 0; i < ch; i++){
         if(x>128||y >160){
             break;
         }
         for(j = 0; j < z; j++){
-            LCD_drawPixel(x, y+i, colora);
+            LCD_drawPixel(x, y+j, colora);
         }
         x++;
     }
@@ -85,7 +86,7 @@ void drawBar(char x, char y, char z, char ch, char len, int colora, int colorb){
             break;
         }
         for(j = 0; j < z; j++){
-            LCD_drawPixel(x, y+i, colorb);
+            LCD_drawPixel(x, y+j, colorb);
         }
         x++;
     }
@@ -113,7 +114,6 @@ int main() {
     LATAbits.LATA4 = 1;
     TRISBbits.TRISB4 = 1;
     
-    SPI1_init();
     LCD_init(); 
     LCD_clearScreen(BGCOLOR);
     
@@ -124,9 +124,14 @@ int main() {
     
     while(1){
         for(i = 0; i < 100; i++){
+            _CP0_SET_COUNT(0);
             sprintf(message, "Hello World %d ", i);
             displayStr(message,28,32);
             drawBar(28,50,1,i,100,BARCOLOR,BGCOLOR); 
+            
+            while(_CP0_GET_COUNT() <= 2400000){
+                ; 
+            }
         }
     }
     
