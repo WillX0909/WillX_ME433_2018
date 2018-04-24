@@ -1,5 +1,12 @@
 #include<xc.h>           // processor SFR definitions
 #include<sys/attribs.h>  // __ISR macro
+#include "ST7735.h"
+#include <stdio.h>
+
+#define BGCOLOR BLACK 
+#define TEXTCOLOR GREEN
+#define BARCOLOR RED
+#define N 20
 
 // DEVCFG0
 #pragma config DEBUG = OFF // no debugging
@@ -36,17 +43,53 @@
 #pragma config FUSBIDIO = ON // USB pins controlled by USB module
 #pragma config FVBUSONIO = ON // USB BUSON controlled by USB module
 
-void delay(void){
-    while(!PORTBbits.RB4){
-        _CP0_SET_COUNT(0);
-        LATAbits.LATA4=0;
-    }
-    if (_CP0_GET_COUNT()>=12000){
-        _CP0_SET_COUNT(0);
-        LATAbits.LATA4=!LATAbits.LATA4; 
+void displayChar(char x, char y, int color, char ch){
+    int i, j;
+    
+    for(i = 0; i < 5; i++){
+        int k = ASCII[ch - 0x20][i];
+        for(j = 0; j < 8; j++){
+            if(x > 128 || y > 160){ // error check that x and y are not out of bounds
+                break;
+            }else if(k >> j & 1){
+                LCD_drawPixel(x+i, y+j, color);
+            }else{
+                LCD_drawPixel(x+i, y+j, BGCOLOR);
+            }
+        }
     }
 }
 
+void displayStr(char* msg, char x, char y){
+    int i = 0;
+    while(msg[i] != 0){
+        displayChar(x+(i*6), y, TEXTCOLOR, msg[i]);
+        i++;
+    }
+}
+
+void drawBar(char x, char y, char z, char ch, char len, int colora, int colorb){
+    int i, j;
+    for(i = 0; i < ch; i++){
+        if(x>128||y >160){
+            break;
+        }
+        for(j = 0; j < z; j++){
+            LCD_drawPixel(x, y+i, colora);
+        }
+        x++;
+    }
+    
+    for(i = ch; i < len; i++){
+        if(x>128||y >160){
+            break;
+        }
+        for(j = 0; j < z; j++){
+            LCD_drawPixel(x, y+i, colorb);
+        }
+        x++;
+    }
+}
 
 int main() {
 
@@ -65,15 +108,26 @@ int main() {
     DDPCONbits.JTAGEN = 0;
 
     // do your TRIS and LAT commands here
+
     TRISAbits.TRISA4 = 0;
     LATAbits.LATA4 = 1;
     TRISBbits.TRISB4 = 1;
+    
+    SPI1_init();
+    LCD_init(); 
+    LCD_clearScreen(BGCOLOR);
+    
     __builtin_enable_interrupts();
-
-
-    while(1) {
-	// use _CP0_SET_COUNT(0) and _CP0_GET_COUNT() to test the PIC timing
-	// remember the core timer runs at half the sysclk
-        delay();
+    
+    char message[N];
+    int i;
+    
+    while(1){
+        for(i = 0; i < 100; i++){
+            sprintf(message, "Hello World %d ", i);
+            displayStr(message,28,32);
+            drawBar(28,50,1,i,100,BARCOLOR,BGCOLOR); 
+        }
     }
+    
 }
