@@ -249,5 +249,9 @@ int main(void) {
         
         drawXBar(64, 80, 4, ax, MAXBARLEN,BARCOLOR, BGCOLOR);
         drawYBar(64, 80, 4, ay, MAXBARLEN,BARCOLOR, BGCOLOR);
+        
+        while (_CP0_GET_COUNT() <= 1200000) {
+            ; //20 Hz
+        }
     }
 }
