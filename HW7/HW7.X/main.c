@@ -4,13 +4,12 @@
 #include <stdio.h>
 #include "ST7735.h"
 
-#define SLAVE_ADDR 0x6B
-#define CTRL1_XL   0x10
-#define CTRL2_G    0x11 
-#define CTRL3_C    0x12
-#define WHO_AM_I   0x0F
-#define OUT_TEMP_L 0x20
-#define OUTX_L_XL  0x28
+#define SLAVE_ADDR 0b01101011
+#define CTRL1_XL   0b00010000
+#define CTRL2_G    0b00010001 
+#define CTRL3_C    0b00010010
+#define WHO_AM_I   0b00001111
+#define OUT_TEMP_L 0b00100000
 
 #define BGCOLOR BLACK 
 #define TEXTCOLOR GREEN
@@ -164,13 +163,13 @@ void drawYBar(short x, short y, short width, short len, short maxlen, short colo
 char WhoAmI(void){
     i2c_master_start();
     i2c_master_send(SLAVE_ADDR << 1 | 0); 
-    i2c_master_send(WHO_AM_I_ADDR); 
+    i2c_master_send(WHO_AM_I); 
     i2c_master_restart(); 
     i2c_master_send(SLAVE_ADDR << 1 | 1); 
     char ch = i2c_master_recv(); 
     i2c_master_ack(1); 
     i2c_master_stop(); 
-    return r;
+    return ch;
 }
 
 void I2C_read_multiple(unsigned char address, unsigned char reg, char* msg, int len){
@@ -185,6 +184,7 @@ void I2C_read_multiple(unsigned char address, unsigned char reg, char* msg, int 
         msg[i] = i2c_master_recv();
         if(i == len - 1){
             i2c_master_ack(1);
+            break;
         }else{
             i2c_master_ack(0); // keep on reading
         }
@@ -221,37 +221,37 @@ int main(void) {
     __builtin_enable_interrupts();
     
     
-    unsigned char message[200];
-    short raw[200];
-    short trans[200];
-    short ax;
-    short ay;
+    char message[100];
+    unsigned char raw[100];
+    signed short trans[100];
+ 
     int i;
     
     while(1){
         
-        sprintf(message, " %d ", WhoAmI());
-        displayStr(message, 10, 10);
+        //sprintf(message, " %d ", WhoAmI());
+        //displayStr(message, 10, 100);
         
         I2C_read_multiple(SLAVE_ADDR, OUT_TEMP_L, raw, 14);
-        
+        i = 0;      
         for (i = 0; i < 7; i++) {
             trans[i] = ((raw[2 * i + 1] << 8) | (raw[2 * i]));
         }
         
-        ax = trans[4] / 500;
-        ay = trans[5] / 500;
+        signed short ax = trans[4]*0.003;
+        signed short ay = (trans[5])*0.003;
         
         sprintf(message, "ACCELx: %hi", trans[4]);
-        displayStr(message, 10, 10);
-        sprintf(message, "ACCELy: %hi", trans[5]);
         displayStr(message, 10, 20);
+        sprintf(message, "ACCELy: %hi", trans[5]);
+        displayStr(message, 10, 30);
         
-        drawXBar(64, 80, 4, ax, MAXBARLEN,BARCOLOR, BGCOLOR);
-        drawYBar(64, 80, 4, ay, MAXBARLEN,BARCOLOR, BGCOLOR);
-        
+        drawXBar(64, 80, 3, ax, MAXBARLEN,BARCOLOR, BGCOLOR);
+        drawYBar(64, 80, 3, ay, MAXBARLEN,BARCOLOR, BGCOLOR);
+                  
         while (_CP0_GET_COUNT() <= 1200000) {
             ; //20 Hz
         }
+        LATAbits.LATA4 = !LATAbits.LATA4;
     }
 }
