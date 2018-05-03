@@ -54,6 +54,11 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
 // *****************************************************************************
 
 #include "app.h"
+#include<xc.h>           // processor SFR definitions
+#include<sys/attribs.h>  // __ISR macro
+#include "i2c_master_noint.h"
+#include <stdio.h>
+#include "ST7735.h"
 
 #define SLAVE_ADDR 0b01101011
 #define CTRL1_XL   0b00010000
@@ -89,40 +94,6 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
 */
 
 APP_DATA appData;
-
-// *****************************************************************************
-// *****************************************************************************
-// Section: Application Callback Functions
-// *****************************************************************************
-// *****************************************************************************
-
-/* TODO:  Add any necessary callback functions.
-*/
-
-// *****************************************************************************
-// *****************************************************************************
-// Section: Application Local Functions
-// *****************************************************************************
-// *****************************************************************************
-
-
-/* TODO:  Add any necessary local functions.
-*/
-
-
-// *****************************************************************************
-// *****************************************************************************
-// Section: Application Initialization and State Machine Functions
-// *****************************************************************************
-// *****************************************************************************
-
-/*******************************************************************************
-  Function:
-    void APP_Initialize ( void )
-
-  Remarks:
-    See prototype in app.h.
- */
 
 void initIMU(void){
     
@@ -264,23 +235,58 @@ void I2C_read_multiple(unsigned char address, unsigned char reg, char* msg, int 
     }
     i2c_master_stop();
 }
+// *****************************************************************************
+// *****************************************************************************
+// Section: Application Callback Functions
+// *****************************************************************************
+// *****************************************************************************
 
-void APP_Initialize ( void ){
+/* TODO:  Add any necessary callback functions.
+*/
+
+// *****************************************************************************
+// *****************************************************************************
+// Section: Application Local Functions
+// *****************************************************************************
+// *****************************************************************************
+
+
+/* TODO:  Add any necessary local functions.
+*/
+
+
+// *****************************************************************************
+// *****************************************************************************
+// Section: Application Initialization and State Machine Functions
+// *****************************************************************************
+// *****************************************************************************
+
+/*******************************************************************************
+  Function:
+    void APP_Initialize ( void )
+
+  Remarks:
+    See prototype in app.h.
+ */
+
+void APP_Initialize ( void )
+{
     /* Place the App state machine in its initial state. */
     appData.state = APP_STATE_INIT;
-    TRISAbits.TRISA4 = 0;
-    LATAbits.LATA4 = 1;
-    TRISBbits.TRISB4 = 1;
-    ANSELBbits.ANSB2 = 0;
-    ANSELBbits.ANSB3 = 0;
-    
-    /* TODO: Initialize your application's state machine and other
-     * parameters.
-     */
+    TRISBbits.TRISB4 = 1; //sets RB4 (pin 11, Push Button) as input
+    TRISAbits.TRISA4 = 0; //sets RA4 (pin 12, Green LED) as output
+    LATAbits.LATA4 = 1; //sets Green LED to be high output 
+    ANSELBbits.ANSB2 = 0; //turn off analog function on pin 6 of pic32
+    ANSELBbits.ANSB3 = 0; //turn off analog function on pin 7 of pic32
     i2c_master_setup();
     LCD_init(); 
     initIMU(); 
     LCD_clearScreen(BGCOLOR);
+    __builtin_enable_interrupts();
+    
+    /* TODO: Initialize your application's state machine and other
+     * parameters.
+     */
 }
 
 
@@ -319,10 +325,8 @@ void APP_Tasks ( void )
             signed short trans[100];
  
             int i;
-            while(1){
-        
-                        //sprintf(message, " %d ", WhoAmI());
-                        //displayStr(message, 10, 100);
+    
+            while(1){     
                 I2C_read_multiple(SLAVE_ADDR, OUT_TEMP_L, raw, 14);
                 i = 0;      
                 for (i = 0; i < 7; i++) {
