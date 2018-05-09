@@ -51,7 +51,22 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
 #include "app.h"
 #include <stdio.h>
 #include <xc.h>
+#include <sys/attribs.h>  // __ISR macro
+#include "i2c_master_noint.h"
+#include "ST7735.h"
 
+
+#define SLAVE_ADDR 0b01101011
+#define CTRL1_XL   0b00010000
+#define CTRL2_G    0b00010001 
+#define CTRL3_C    0b00010010
+#define WHO_AM_I   0b00001111
+#define OUT_TEMP_L 0b00100000
+
+#define BGCOLOR BLACK 
+#define TEXTCOLOR GREEN
+#define BARCOLOR RED
+#define MAXBARLEN 50
 // *****************************************************************************
 // *****************************************************************************
 // Section: Global Data Definitions
@@ -63,6 +78,47 @@ uint8_t APP_MAKE_BUFFER_DMA_READY readBuffer[APP_READ_BUFFER_SIZE];
 int len, i = 0;
 int startTime = 0;
 
+void initIMU(void){
+    
+    i2c_master_start();
+    i2c_master_send(SLAVE_ADDR << 1 | 0);
+    i2c_master_send(CTRL1_XL);
+    i2c_master_send(0b10000010);
+    i2c_master_stop();
+    
+    i2c_master_start();
+    i2c_master_send(SLAVE_ADDR <<1 | 0);
+    i2c_master_send(CTRL2_G);
+    i2c_master_send(0b10001000);
+    i2c_master_stop();
+    
+    i2c_master_start();
+    i2c_master_send(SLAVE_ADDR <<1 | 0);
+    i2c_master_send(CTRL3_C);
+    i2c_master_send(0b00000100);
+    i2c_master_stop();
+    
+}
+
+void I2C_read_multiple(unsigned char address, unsigned char reg, char* msg, int len){
+    i2c_master_start();
+    i2c_master_send(address << 1 | 0);
+    i2c_master_send(reg);
+    i2c_master_restart();
+    i2c_master_send(address << 1 | 1);
+    
+    int i;
+    for(i = 0; i < len; i++){
+        msg[i] = i2c_master_recv();
+        if(i == len - 1){
+            i2c_master_ack(1);
+            break;
+        }else{
+            i2c_master_ack(0); // keep on reading
+        }
+    }
+    i2c_master_stop();
+}
 // *****************************************************************************
 /* Application Data
   Summary:
