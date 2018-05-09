@@ -76,7 +76,13 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
 uint8_t APP_MAKE_BUFFER_DMA_READY dataOut[APP_READ_BUFFER_SIZE];
 uint8_t APP_MAKE_BUFFER_DMA_READY readBuffer[APP_READ_BUFFER_SIZE];
 int len, i = 0;
+int k = 0;
 int startTime = 0;
+int go = 0;
+
+char msg[100];
+unsigned char charArray[100];
+signed short shortArray[100];
 
 void initIMU(void){
     
@@ -355,7 +361,16 @@ bool APP_StateReset(void) {
 void APP_Initialize(void) {
     /* Place the App state machine in its initial state. */
     appData.state = APP_STATE_INIT;
-
+    
+    /* Initialize pins and IMU/I2C */
+    TRISBbits.TRISB4 = 1; //sets RB4 (pin 11, Push Button) as input
+    TRISAbits.TRISA4 = 0; //sets RA4 (pin 12, Green LED) as output
+    LATAbits.LATA4 = 1; //sets Green LED to be high output 
+    ANSELBbits.ANSB2 = 0; //turn off analog function on pin 6 of pic32
+    ANSELBbits.ANSB3 = 0; //turn off analog function on pin 7 of pic32
+    i2c_master_setup(); //turns on I2C peripheral
+    initIMU(); //initialize IMU
+    
     /* Device Layer Handle  */
     appData.deviceHandle = USB_DEVICE_HANDLE_INVALID;
 
@@ -464,7 +479,7 @@ void APP_Tasks(void) {
             /* Check if a character was received or a switch was pressed.
              * The isReadComplete flag gets updated in the CDC event handler. */
 
-            if (appData.isReadComplete || _CP0_GET_COUNT() - startTime > (48000000 / 2 / 5)) {
+            if (appData.isReadComplete || _CP0_GET_COUNT() - startTime > (48000000 / 2 / 100)) { // Change the frequency here. Currently set at 100 Hz
                 appData.state = APP_STATE_SCHEDULE_WRITE;
             }
 
@@ -482,20 +497,51 @@ void APP_Tasks(void) {
             appData.writeTransferHandle = USB_DEVICE_CDC_TRANSFER_HANDLE_INVALID;
             appData.isWriteComplete = false;
             appData.state = APP_STATE_WAIT_FOR_WRITE_COMPLETE;
+            
+            dataOut[0] = 0;
 
-            len = sprintf(dataOut, "%d\r\n", i);
-            i++;
             if (appData.isReadComplete) {
-                USB_DEVICE_CDC_Write(USB_DEVICE_CDC_INDEX_0,
-                        &appData.writeTransferHandle,
-                        appData.readBuffer, 1,
-                        USB_DEVICE_CDC_TRANSFER_FLAGS_DATA_COMPLETE);
+                if (appData.readBuffer[0] == 'r') {
+                    go = 1;
+                    USB_DEVICE_CDC_Write(USB_DEVICE_CDC_INDEX_0, // send required blank packet when read is not complete (i.e. dataOut[0] = 0, len = 1)
+                            &appData.writeTransferHandle, dataOut, 1,
+                            USB_DEVICE_CDC_TRANSFER_FLAGS_DATA_COMPLETE);
+                } else {
+                    len = sprintf(dataOut, "error\r\n");
+                    USB_DEVICE_CDC_Write(USB_DEVICE_CDC_INDEX_0,
+                            &appData.writeTransferHandle,
+                            dataOut, len,
+                            USB_DEVICE_CDC_TRANSFER_FLAGS_DATA_COMPLETE);
+                }
             } else {
-                USB_DEVICE_CDC_Write(USB_DEVICE_CDC_INDEX_0,
-                        &appData.writeTransferHandle, dataOut, len,
-                        USB_DEVICE_CDC_TRANSFER_FLAGS_DATA_COMPLETE);
-                startTime = _CP0_GET_COUNT();
+                if (go == 1) {
+                    if (i < 100) { //to print 100 values
+                        I2C_read_multiple(SLAVE_ADDR, OUT_TEMP_L, charArray, 14); //reads 14 8-bit bytes of data, into the charArray
+                        int j = 0;
+                        for (j = 0; j < 7; j++) { //recombines charArray data into 7 16-bit shorts
+                            shortArray[j] = ((charArray[2 * j + 1] << 8) | (charArray[2 * j]));
+                        }
+                        len = sprintf(dataOut, "%d %d %d %d %d %d %d\r\n", i, shortArray[1], shortArray[2], shortArray[3], shortArray[4], shortArray[5], shortArray[6]);
+                        i++;
+                        USB_DEVICE_CDC_Write(USB_DEVICE_CDC_INDEX_0,
+                                &appData.writeTransferHandle,
+                                dataOut, len,
+                                USB_DEVICE_CDC_TRANSFER_FLAGS_DATA_COMPLETE);
+                    } else { //reset it back to 0 once there are 100 values
+                        i = 0;
+                        go = 0;
+                        USB_DEVICE_CDC_Write(USB_DEVICE_CDC_INDEX_0, // send required blank packet when read is not complete (i.e. dataOut[0] = 0, len = 1)
+                                &appData.writeTransferHandle, dataOut, 1,
+                                USB_DEVICE_CDC_TRANSFER_FLAGS_DATA_COMPLETE);
+                    }
+                } else { //print required blank packet when nothing is in buffer
+                    USB_DEVICE_CDC_Write(USB_DEVICE_CDC_INDEX_0,
+                            &appData.writeTransferHandle, dataOut, 1,
+                            USB_DEVICE_CDC_TRANSFER_FLAGS_DATA_COMPLETE);
+                    startTime = _CP0_GET_COUNT();
+                }
             }
+
             break;
 
         case APP_STATE_WAIT_FOR_WRITE_COMPLETE:
