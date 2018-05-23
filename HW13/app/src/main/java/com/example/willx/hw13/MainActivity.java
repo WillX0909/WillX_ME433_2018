@@ -26,9 +26,8 @@ import static android.graphics.Color.green;
 import static android.graphics.Color.red;
 import static android.graphics.Color.rgb;
 
-import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
-import android.widget.TextView;
+
 
 public class MainActivity extends Activity implements TextureView.SurfaceTextureListener {
     private Camera mCamera;
@@ -40,7 +39,6 @@ public class MainActivity extends Activity implements TextureView.SurfaceTexture
     private Paint paint1 = new Paint();
     private TextView mTextView;
     SeekBar myControl;
-    TextView myTitle;
     TextView myBar;
 
     static long prevtime = 0; // for FPS calculation
