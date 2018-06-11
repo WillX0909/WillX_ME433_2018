@@ -1,14 +1,16 @@
 /*******************************************************************************
   MPLAB Harmony Application Source File
+  
   Company:
     Microchip Technology Inc.
+  
   File Name:
     app.c
   Summary:
     This file contains the source code for the MPLAB Harmony application.
   Description:
-    This file contains the source code for the MPLAB Harmony application.  It
-    implements the logic of the application's state machine and it may call
+    This file contains the source code for the MPLAB Harmony application.  It 
+    implements the logic of the application's state machine and it may call 
     API routines of other MPLAB Harmony modules in the system, such as drivers,
     system services, and middleware.  However, it does not call any of the
     system interfaces (such as the "Initialize" and "Tasks" functions) of any of
@@ -42,7 +44,7 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
 
 // *****************************************************************************
 // *****************************************************************************
-// Section: Included Files
+// Section: Included Files 
 // *****************************************************************************
 // *****************************************************************************
 
@@ -59,13 +61,11 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
 uint8_t APP_MAKE_BUFFER_DMA_READY dataOut[APP_READ_BUFFER_SIZE];
 uint8_t APP_MAKE_BUFFER_DMA_READY readBuffer[APP_READ_BUFFER_SIZE];
 int len, i = 0;
-int startTime = 0; // to remember the loop time
-
+int startTime = 0;
 char rx[64]; // the raw data
 int rxPos = 0; // how much data has been stored
 int gotRx = 0; // the flag
 int rxVal = 0; // a place to store the int that was received
-
 // *****************************************************************************
 /* Application Data
   Summary:
@@ -74,6 +74,7 @@ int rxVal = 0; // a place to store the int that was received
     This structure holds the application's data.
   Remarks:
     This structure should be initialized by the APP_Initialize function.
+    
     Application strings and buffers are be defined outside this structure.
  */
 
@@ -299,6 +300,41 @@ bool APP_StateReset(void) {
  */
 
 void APP_Initialize(void) {
+    // put these initializations in APP_Initialize()
+    RPA0Rbits.RPA0R = 0b0101; // A0 to OC1
+    RPB13Rbits.RPB13R = 0b0101; // B13 to OC4
+    T2CONbits.TCKPS = 0; // Timer2 prescaler N=1 (1:1)
+    PR2 = 2399; // 48000000 Hz / 20000 Hz / 1 - 1 = 2399 (20kHz PWM from 48MHz clock with 1:1 prescaler)
+    TMR2 = 0; // initial TMR2 count is 0
+    OC1CONbits.OCM = 0b110; // PWM mode without fault pin; other OCxCON bits are defaults
+    OC1RS = 0; // duty cycle
+    OC1R = 0; // initialize before turning OC1 on; afterward it is read-only
+    OC4CONbits.OCM = 0b110; // PWM mode without fault pin; other OCxCON bits are defaults
+    OC4RS = 0; // duty cycle
+    OC4R = 0; // initialize before turning OC4 on; afterward it is read-only
+    T2CONbits.ON = 1; // turn on Timer2
+    OC1CONbits.ON = 1; // turn on OC1
+    OC4CONbits.ON = 1; // turn on OC4
+    
+    T5CKbits.T5CKR = 0b0100; // B9 is read by T5CK
+    T3CKbits.T3CKR = 0b0100; // B8 is read by T3CK
+    T5CONbits.TCS = 1; // count external pulses
+    PR5 = 0xFFFF; // enable counting to max value of 2^16 - 1
+    TMR5 = 0; // set the timer count to zero
+    T5CONbits.ON = 1; // turn Timer on and start counting
+    T3CONbits.TCS = 1; // count external pulses
+    PR3 = 0xFFFF; // enable counting to max value of 2^16 - 1
+    TMR3 = 0; // set the timer count to zero
+    T3CONbits.ON = 1; // turn Timer on and start counting
+    
+    T4CONbits.TCKPS = 2; // Timer4 prescaler N=4
+    PR4 = 23999; // 48000000 Hz / 500 Hz / 4 - 1 = 23999 (500Hz from 48MHz clock with 4:1 prescaler)
+    TMR4 = 0; // initial TMR4 count is 0
+    T4CONbits.ON = 1;
+    IPC4bits.T4IP = 4; // priority for Timer 4 
+    IFS0bits.T4IF = 0; // clear interrupt flag for Timer4
+    IEC0bits.T4IE = 1; // enable interrupt for Timer4
+    
     /* Place the App state machine in its initial state. */
     appData.state = APP_STATE_INIT;
 
@@ -332,8 +368,6 @@ void APP_Initialize(void) {
 
     /* Set up the read buffer */
     appData.readBuffer = &readBuffer[0];
-
-    /* PUT YOUR LCD, IMU, AND PIN INITIALIZATIONS HERE */
 
     startTime = _CP0_GET_COUNT();
 }
@@ -377,7 +411,25 @@ void APP_Tasks(void) {
             break;
 
         case APP_STATE_SCHEDULE_READ:
-
+            // somewhere in APP_Tasks(), probably in case APP_STATE_SCHEDULE_READ
+                // when you read data from the host
+            if(rxVal == 50) { // no movement
+                LATAbits.LATA1 = 0; 
+                OC1RS = 0; 
+                LATBbits.LATB3 = 0; 
+                OC4RS = 0; 
+            } else if(rxVal == 0) {
+                LATAbits.LATA1 = 0; 
+                OC1RS = 600 ; 
+                LATBbits.LATB3 = 0; 
+                OC4RS = 600; 
+            } else if (rxVal == 100) {
+                LATAbits.LATA1 = 1; 
+                OC1RS = 600; 
+                LATBbits.LATB3 = 1; 
+                OC4RS = 600; 
+            }
+            
             if (APP_StateReset()) {
                 break;
             }
@@ -412,12 +464,6 @@ void APP_Tasks(void) {
                         &appData.readTransferHandle, appData.readBuffer,
                         APP_READ_BUFFER_SIZE);
 
-                        /* AT THIS POINT, appData.readBuffer[0] CONTAINS A LETTER
-                        THAT WAS SENT FROM THE COMPUTER */
-                        /* YOU COULD PUT AN IF STATEMENT HERE TO DETERMINE WHICH LETTER
-                        WAS RECEIVED (USUALLY IT IS THE NULL CHARACTER BECAUSE NOTHING WAS
-                      TYPED) */
-
                 if (appData.readTransferHandle == USB_DEVICE_CDC_TRANSFER_HANDLE_INVALID) {
                     appData.state = APP_STATE_ERROR;
                     break;
@@ -436,7 +482,6 @@ void APP_Tasks(void) {
             /* Check if a character was received or a switch was pressed.
              * The isReadComplete flag gets updated in the CDC event handler. */
 
-             /* WAIT FOR 5HZ TO PASS OR UNTIL A LETTER IS RECEIVED */
             if (gotRx || _CP0_GET_COUNT() - startTime > (48000000 / 2 / 5)) {
                 appData.state = APP_STATE_SCHEDULE_WRITE;
             }
@@ -454,10 +499,8 @@ void APP_Tasks(void) {
             appData.writeTransferHandle = USB_DEVICE_CDC_TRANSFER_HANDLE_INVALID;
             appData.isWriteComplete = false;
             appData.state = APP_STATE_WAIT_FOR_WRITE_COMPLETE;
-
-            /* PUT THE TEXT YOU WANT TO SEND TO THE COMPUTER IN dataOut
-            AND REMEMBER THE NUMBER OF CHARACTERS IN len */
-            /* THIS IS WHERE YOU CAN READ YOUR IMU, PRINT TO THE LCD, ETC */
+            
+            dataOut[0] = 0;
             if (gotRx) {
                 len = sprintf(dataOut, "got: %d\r\n", rxVal);
                 i++;
@@ -467,13 +510,13 @@ void APP_Tasks(void) {
                         USB_DEVICE_CDC_TRANSFER_FLAGS_DATA_COMPLETE);
                 rxPos = 0;
                 gotRx = 0;
+
             } else {
-                len = sprintf(dataOut, "%d\r\n", i);
-                i++;
+                
                 USB_DEVICE_CDC_Write(USB_DEVICE_CDC_INDEX_0,
-                        &appData.writeTransferHandle, dataOut, len,
-                        USB_DEVICE_CDC_TRANSFER_FLAGS_DATA_COMPLETE);
-                startTime = _CP0_GET_COUNT();
+                            &appData.writeTransferHandle, dataOut, 1,
+                            USB_DEVICE_CDC_TRANSFER_FLAGS_DATA_COMPLETE);
+                    startTime = _CP0_GET_COUNT();
             }
             break;
 
@@ -485,7 +528,7 @@ void APP_Tasks(void) {
 
             /* Check if a character was sent. The isWriteComplete
              * flag gets updated in the CDC event handler */
-
+                
             if (appData.isWriteComplete == true) {
                 appData.state = APP_STATE_SCHEDULE_READ;
             }
