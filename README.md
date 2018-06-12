@@ -1,3 +1,7 @@
 # WillX_ME433_2018
 
-The start of GitHub
+Advanced Embedded System Programming.  
+
+Prof: Nick Marchuk. 
+
+Northwestern University
